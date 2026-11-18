@@ -1,0 +1,1657 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>BALLOON POP – Pecahkan Balon Pintar</title>
+    
+    <!-- Google Fonts untuk tampilan ramah anak SD -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- MediaPipe Hands & Camera Utils CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
+    <style>
+        :root {
+            --sky-top: #38bdf8;
+            --sky-bottom: #bae6fd;
+            --grass-light: #86efac;
+            --grass-dark: #22c55e;
+            --primary: #f59e0b;
+            --primary-dark: #d97706;
+            --secondary: #ec4899;
+            --accent: #6366f1;
+            --text-dark: #1e293b;
+            --card-bg: rgba(255, 255, 255, 0.94);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+            font-family: 'Fredoka', 'Nunito', sans-serif;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-bottom) 78%, var(--grass-light) 78%, var(--grass-dark) 100%);
+        }
+
+        /* ================= BACKGROUND DEKORASI (AWAN, MATAHARI, BUKIT) ================= */
+        .sky-decor {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+            overflow: hidden;
+        }
+
+        .sun {
+            position: absolute;
+            top: 25px;
+            right: 40px;
+            width: 90px;
+            height: 90px;
+            background: radial-gradient(circle, #fef08a 20%, #facc15 70%, #f59e0b 100%);
+            border-radius: 50%;
+            box-shadow: 0 0 45px #fde047, 0 0 80px rgba(250, 204, 21, 0.6);
+            animation: sunPulse 4s infinite alternate ease-in-out;
+        }
+
+        @keyframes sunPulse {
+            0% { transform: scale(1); }
+            100% { transform: scale(1.08); }
+        }
+
+        .cloud {
+            position: absolute;
+            background: #ffffff;
+            border-radius: 50px;
+            opacity: 0.9;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
+            animation: floatCloud linear infinite;
+        }
+
+        .cloud::before, .cloud::after {
+            content: '';
+            position: absolute;
+            background: #ffffff;
+            border-radius: 50%;
+        }
+
+        .c1 { width: 140px; height: 48px; top: 12%; left: -160px; animation-duration: 38s; }
+        .c1::before { width: 65px; height: 65px; top: -32px; left: 20px; }
+        .c1::after { width: 50px; height: 50px; top: -22px; right: 22px; }
+
+        .c2 { width: 180px; height: 56px; top: 26%; left: -200px; animation-duration: 52s; animation-delay: 8s; }
+        .c2::before { width: 80px; height: 80px; top: -40px; left: 28px; }
+        .c2::after { width: 60px; height: 60px; top: -25px; right: 28px; }
+
+        .c3 { width: 120px; height: 42px; top: 44%; left: -140px; animation-duration: 44s; animation-delay: 18s; }
+        .c3::before { width: 55px; height: 55px; top: -26px; left: 18px; }
+        .c3::after { width: 42px; height: 42px; top: -18px; right: 18px; }
+
+        @keyframes floatCloud {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(calc(100vw + 250px)); }
+        }
+
+        .hills {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 22%;
+            background: linear-gradient(180deg, #4ade80 0%, #16a34a 100%);
+            border-top-left-radius: 50% 40px;
+            border-top-right-radius: 50% 40px;
+            box-shadow: inset 0 10px 20px rgba(255,255,255,0.3);
+        }
+
+        /* ================= SCREEN CONTAINER ================= */
+        .screen {
+            position: fixed;
+            inset: 0;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            transition: opacity 0.4s ease, transform 0.4s ease;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* ================= START SCREEN ================= */
+        .start-card {
+            background: var(--card-bg);
+            border: 5px solid #ffffff;
+            border-radius: 32px;
+            padding: 28px 32px;
+            max-width: 540px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 20px 45px rgba(14, 116, 144, 0.25), 0 8px 0 #cbd5e1;
+            animation: popIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0.8); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .badge-edu {
+            display: inline-block;
+            background: #e0f2fe;
+            color: #0369a1;
+            font-weight: 700;
+            font-size: 0.9rem;
+            padding: 6px 16px;
+            border-radius: 999px;
+            margin-bottom: 10px;
+            border: 2px solid #7dd3fc;
+        }
+
+        .game-title {
+            font-size: clamp(1.8rem, 4.5vw, 2.5rem);
+            color: #ef4444;
+            text-shadow: 2px 3px 0px #fde047, 0 5px 12px rgba(0,0,0,0.12);
+            line-height: 1.15;
+            margin-bottom: 6px;
+        }
+
+        .game-subtitle {
+            font-size: 1.1rem;
+            color: #475569;
+            font-weight: 700;
+            margin-bottom: 20px;
+        }
+
+        .input-group {
+            text-align: left;
+            margin-bottom: 18px;
+        }
+
+        .input-group label {
+            display: block;
+            font-weight: 700;
+            color: #334155;
+            margin-bottom: 6px;
+            font-size: 1rem;
+        }
+
+        .input-name {
+            width: 100%;
+            padding: 14px 18px;
+            font-size: 1.15rem;
+            font-weight: 700;
+            border-radius: 18px;
+            border: 3px solid #94a3b8;
+            outline: none;
+            color: #1e293b;
+            transition: all 0.2s;
+            background: #f8fafc;
+        }
+
+        .input-name:focus {
+            border-color: #3b82f6;
+            background: #ffffff;
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2);
+        }
+
+        .mode-selector {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .mode-btn {
+            padding: 12px 10px;
+            border-radius: 18px;
+            border: 3px solid #cbd5e1;
+            background: #f8fafc;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .mode-btn.active {
+            border-color: #10b981;
+            background: #ecfdf5;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+        }
+
+        .mode-btn span.icon { font-size: 1.6rem; }
+        .mode-btn span.label { font-weight: 700; font-size: 0.95rem; color: #1e293b; }
+        .mode-btn span.desc { font-size: 0.75rem; color: #64748b; font-family: 'Nunito', sans-serif; }
+
+        .btn-start {
+            width: 100%;
+            padding: 16px 24px;
+            font-size: 1.35rem;
+            font-weight: 700;
+            color: white;
+            background: linear-gradient(180deg, #fbbf24 0%, #f59e0b 100%);
+            border: none;
+            border-radius: 22px;
+            cursor: pointer;
+            box-shadow: 0 7px 0 #b45309, 0 12px 20px rgba(245, 158, 11, 0.4);
+            transition: transform 0.1s, box-shadow 0.1s;
+        }
+
+        .btn-start:hover {
+            filter: brightness(1.05);
+        }
+
+        .btn-start:active {
+            transform: translateY(5px);
+            box-shadow: 0 2px 0 #b45309, 0 5px 10px rgba(245, 158, 11, 0.4);
+        }
+
+        .gesture-guide {
+            margin-top: 14px;
+            background: #fef3c7;
+            border: 2px dashed #f59e0b;
+            border-radius: 14px;
+            padding: 8px 12px;
+            font-size: 0.85rem;
+            color: #92400e;
+            font-family: 'Nunito', sans-serif;
+            font-weight: 700;
+        }
+
+        /* ================= GAMEPLAY HUD & NAVBAR ================= */
+        #game-screen {
+            justify-content: flex-start;
+            padding: 12px 16px;
+        }
+
+        .navbar {
+            width: 100%;
+            max-width: 1100px;
+            background: var(--card-bg);
+            border-radius: 22px;
+            padding: 10px 18px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+            border: 3px solid #ffffff;
+            z-index: 20;
+        }
+
+        .nav-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .pill {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 14px;
+            border-radius: 999px;
+            font-weight: 700;
+            font-size: 0.95rem;
+        }
+
+        .pill-student { background: #e0e7ff; color: #3730a3; }
+        .pill-level { background: #fce7f3; color: #9d174d; }
+        .pill-score { background: #fef3c7; color: #b45309; }
+        .pill-timer { background: #dcfce7; color: #166534; }
+
+        .btn-icon {
+            background: #f1f5f9;
+            border: 2px solid #cbd5e1;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            font-size: 1.2rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.15s, background 0.15s;
+        }
+
+        .btn-icon:hover {
+            background: #e2e8f0;
+            transform: scale(1.08);
+        }
+
+        /* Progress Bar */
+        .progress-wrapper {
+            width: 100%;
+            max-width: 1100px;
+            margin-top: 8px;
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 999px;
+            height: 14px;
+            padding: 2px;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+            z-index: 20;
+        }
+
+        .progress-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #34d399, #10b981, #059669);
+            border-radius: 999px;
+            transition: width 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        /* Question Card */
+        .question-box {
+            width: 100%;
+            max-width: 820px;
+            margin-top: 12px;
+            background: #ffffff;
+            border-radius: 26px;
+            padding: 14px 24px;
+            text-align: center;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12), 0 5px 0 #cbd5e1;
+            border: 4px solid #38bdf8;
+            z-index: 20;
+            position: relative;
+        }
+
+        .q-meta {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+
+        .hots-badge {
+            padding: 4px 12px;
+            border-radius: 999px;
+            font-size: 0.8rem;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .badge-LOTS { background: #dbeafe; color: #1d4ed8; }
+        .badge-MOTS { background: #fef3c7; color: #b45309; }
+        .badge-HOTS { background: #fae8ff; color: #86198f; }
+
+        .question-text {
+            font-size: clamp(1.2rem, 3vw, 1.65rem);
+            font-weight: 700;
+            color: #0f172a;
+            line-height: 1.3;
+        }
+
+        .question-hint {
+            font-size: 0.9rem;
+            color: #64748b;
+            font-family: 'Nunito', sans-serif;
+            font-weight: 700;
+            margin-top: 4px;
+        }
+
+        .btn-speak {
+            position: absolute;
+            right: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #e0f2fe;
+            border: 2px solid #38bdf8;
+            color: #0284c7;
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            font-size: 1.2rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.15s;
+        }
+
+        .btn-speak:hover { transform: translateY(-50%) scale(1.1); }
+
+        /* ================= BALLOON PLAYFIELD ================= */
+        #playfield {
+            position: relative;
+            width: 100%;
+            flex: 1;
+            max-width: 1200px;
+            z-index: 15;
+            overflow: visible;
+        }
+
+        /* 3D Glossy Balloon Styling */
+        .balloon-wrapper {
+            position: absolute;
+            width: 138px;
+            height: 175px;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transform: translate(-50%, -50%);
+            transition: filter 0.15s;
+            will-change: transform, left, top;
+        }
+
+        @media (max-width: 640px) {
+            .balloon-wrapper {
+                width: 112px;
+                height: 148px;
+            }
+        }
+
+        .balloon-wrapper.hovered .balloon-body {
+            transform: scale(1.08);
+            filter: brightness(1.08);
+        }
+
+        .balloon-body {
+            width: 100%;
+            height: 82%;
+            border-radius: 50% 50% 50% 50% / 45% 45% 55% 55%;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 10px;
+            text-align: center;
+            color: #ffffff;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.35);
+            box-shadow: 
+                inset -12px -14px 24px rgba(0, 0, 0, 0.25),
+                inset 10px 10px 20px rgba(255, 255, 255, 0.55),
+                0 14px 24px rgba(0, 0, 0, 0.18);
+            transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        /* Kilau 3D Balon */
+        .balloon-body::before {
+            content: '';
+            position: absolute;
+            top: 14%;
+            left: 18%;
+            width: 22px;
+            height: 36px;
+            background: rgba(255, 255, 255, 0.55);
+            border-radius: 50%;
+            transform: rotate(28deg);
+            pointer-events: none;
+        }
+
+        /* Simpul bawah balon */
+        .balloon-knot {
+            width: 18px;
+            height: 12px;
+            margin-top: -2px;
+            clip-path: polygon(20% 0%, 80% 0%, 100% 100%, 0% 100%);
+            filter: brightness(0.85);
+        }
+
+        /* Tali balon bergoyang */
+        .balloon-string {
+            width: 2px;
+            height: 36px;
+            background: rgba(255, 255, 255, 0.85);
+            border-radius: 2px;
+            transform-origin: top center;
+            animation: swayString 2.2s infinite ease-in-out alternate;
+        }
+
+        @keyframes swayString {
+            0% { transform: rotate(-8deg); }
+            100% { transform: rotate(8deg); }
+        }
+
+        .balloon-emoji {
+            font-size: clamp(1.7rem, 3.5vw, 2.3rem);
+            line-height: 1.1;
+            margin-bottom: 2px;
+            filter: drop-shadow(0 2px 3px rgba(0,0,0,0.2));
+        }
+
+        .balloon-label {
+            font-size: clamp(0.95rem, 2.2vw, 1.15rem);
+            font-weight: 700;
+            line-height: 1.1;
+            word-break: break-word;
+        }
+
+        /* Animasi Salah (Goyang / Shake) */
+        .balloon-wrong {
+            animation: shakeBalloon 0.45s ease-in-out;
+        }
+
+        @keyframes shakeBalloon {
+            0%, 100% { transform: translate(-50%, -50%) rotate(0deg); }
+            20% { transform: translate(-58%, -50%) rotate(-12deg); }
+            40% { transform: translate(-42%, -50%) rotate(12deg); }
+            60% { transform: translate(-55%, -50%) rotate(-8deg); }
+            80% { transform: translate(-45%, -50%) rotate(8deg); }
+        }
+
+        /* ================= PARTICLE CANVAS & FEEDBACK TOAST ================= */
+        #fx-canvas {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 30;
+        }
+
+        .feedback-toast {
+            position: fixed;
+            top: 48%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.5);
+            background: #ffffff;
+            padding: 14px 28px;
+            border-radius: 999px;
+            font-size: 1.6rem;
+            font-weight: 800;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.25);
+            z-index: 40;
+            pointer-events: none;
+            opacity: 0;
+            transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+            border: 4px solid #fbbf24;
+        }
+
+        .feedback-toast.show {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+        }
+
+        /* ================= WEBCAM PIP & HAND POINTER ================= */
+        .camera-pip {
+            position: fixed;
+            bottom: 14px;
+            right: 14px;
+            width: 170px;
+            height: 128px;
+            border-radius: 18px;
+            overflow: hidden;
+            border: 4px solid #ffffff;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.25);
+            background: #0f172a;
+            z-index: 35;
+        }
+
+        .camera-pip video, .camera-pip canvas {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1); /* Mirror */
+        }
+
+        .camera-status {
+            position: absolute;
+            bottom: 4px;
+            left: 6px;
+            right: 6px;
+            background: rgba(15, 23, 42, 0.75);
+            color: #ffffff;
+            font-size: 0.68rem;
+            padding: 2px 6px;
+            border-radius: 8px;
+            text-align: center;
+            font-family: 'Nunito', sans-serif;
+        }
+
+        /* Kursor Tangan Virtual */
+        #hand-cursor {
+            position: fixed;
+            width: 54px;
+            height: 54px;
+            pointer-events: none;
+            z-index: 50;
+            transform: translate(-50%, -50%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.08s ease-out;
+        }
+
+        .cursor-ring {
+            width: 46px;
+            height: 46px;
+            border-radius: 50%;
+            border: 4px dashed #ef4444;
+            background: rgba(254, 240, 138, 0.35);
+            box-shadow: 0 0 15px rgba(239, 68, 68, 0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+            transition: all 0.1s;
+        }
+
+        #hand-cursor.pinching .cursor-ring {
+            transform: scale(0.65);
+            background: rgba(239, 68, 68, 0.8);
+            border-style: solid;
+            border-color: #fde047;
+        }
+
+        /* ================= END SCREEN (APRESIASI) ================= */
+        .end-card {
+            background: var(--card-bg);
+            border: 6px solid #fde047;
+            border-radius: 34px;
+            padding: 30px 32px;
+            max-width: 520px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 22px 50px rgba(0, 0, 0, 0.25);
+            animation: popIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .trophy-icon {
+            font-size: 4.5rem;
+            margin-bottom: 6px;
+            display: inline-block;
+            animation: bounceTrophy 1.2s infinite alternate ease-in-out;
+        }
+
+        @keyframes bounceTrophy {
+            0% { transform: translateY(0) rotate(-4deg); }
+            100% { transform: translateY(-10px) rotate(4deg); }
+        }
+
+        .stars-row {
+            font-size: 2.2rem;
+            margin: 8px 0 14px;
+            letter-spacing: 6px;
+        }
+
+        .summary-box {
+            background: #f0f9ff;
+            border: 2px solid #bae6fd;
+            border-radius: 20px;
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+
+        .summary-name {
+            font-size: 1.4rem;
+            font-weight: 800;
+            color: #0369a1;
+            margin-bottom: 4px;
+        }
+
+        .summary-score {
+            font-size: 2.2rem;
+            font-weight: 800;
+            color: #d97706;
+        }
+
+        .appreciation-msg {
+            font-size: 1rem;
+            color: #334155;
+            font-family: 'Nunito', sans-serif;
+            font-weight: 700;
+            margin-top: 8px;
+            line-height: 1.4;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Dekorasi Langit, Matahari, Awan & Bukit -->
+    <div class="sky-decor">
+        <div class="sun"></div>
+        <div class="cloud c1"></div>
+        <div class="cloud c2"></div>
+        <div class="cloud c3"></div>
+        <div class="hills"></div>
+    </div>
+
+    <!-- Canvas Partikel Ledakan Balon & Konfeti -->
+    <canvas id="fx-canvas"></canvas>
+
+    <!-- Kursor Virtual untuk Deteksi Tangan -->
+    <div id="hand-cursor" class="hidden">
+        <div class="cursor-ring">🎯</div>
+    </div>
+
+    <!-- Umpan Balik Cepat (Toast) -->
+    <div id="feedback-toast" class="feedback-toast">Hebat! 🎉</div>
+
+    <!-- ================= 1. LAYAR AWAL (START SCREEN) ================= -->
+    <section id="start-screen" class="screen">
+        <div class="start-card">
+            <div class="badge-edu">📚 Bahasa Inggris • Kelas 2 SD • Materi: Food</div>
+            <h1 class="game-title">🎈 BALLOON POP<br>PECAHKAN BALON PINTAR</h1>
+            <p class="game-subtitle">Belajar Kosakata Makanan & Minuman dengan Seru!</p>
+
+            <div class="input-group">
+                <label for="student-name">✏️ Siapa namamu?</label>
+                <input type="text" id="student-name" class="input-name" placeholder="Ketik nama kamu di sini..." maxlength="24" autocomplete="off">
+            </div>
+
+            <div class="input-group" style="margin-bottom: 10px;">
+                <label>🎮 Pilih Cara Bermain:</label>
+            </div>
+            <div class="mode-selector">
+                <div id="mode-camera" class="mode-btn active" onclick="selectControlMode('camera')">
+                    <span class="icon">🖐️📷</span>
+                    <span class="label">Kamera & Tangan</span>
+                    <span class="desc">Arahkan jari & cubit (pinch)</span>
+                </div>
+                <div id="mode-pointer" class="mode-btn" onclick="selectControlMode('pointer')">
+                    <span class="icon">🖱️👆</span>
+                    <span class="label">Mouse / Sentuh</span>
+                    <span class="desc">Klik atau sentuh balon</span>
+                </div>
+            </div>
+
+            <button id="btn-start" class="btn-start" onclick="startGame()">🚀 MULAI BERMAIN!</button>
+
+            <div id="gesture-info" class="gesture-guide">
+                💡 Tips Kamera: Izinkan akses kamera saat diminta. Arahkan telunjuk ke balon, lalu rapatkan jempol & telunjuk (Pinch 🤏) untuk memecahkan balon!
+            </div>
+        </div>
+    </section>
+
+    <!-- ================= 2. LAYAR PERMAINAN (GAMEPLAY SCREEN) ================= -->
+    <section id="game-screen" class="screen hidden">
+        <!-- Navbar Atas -->
+        <header class="navbar">
+            <div class="nav-group">
+                <div class="pill pill-student">👦 <span id="hud-name">Siswa</span></div>
+                <div class="pill pill-level">🏆 Level <span id="hud-level">1</span>/5</div>
+            </div>
+            <div class="nav-group">
+                <div class="pill pill-score">⭐ Skor: <span id="hud-score">0</span></div>
+                <div class="pill pill-timer">⏱️ <span id="hud-timer">00:00</span></div>
+                <button id="btn-mute" class="btn-icon" title="Suara On/Off" onclick="toggleMute()">🔊</button>
+            </div>
+        </header>
+
+        <!-- Progress Bar 15 Soal -->
+        <div class="progress-wrapper">
+            <div id="progress-bar" class="progress-fill"></div>
+        </div>
+
+        <!-- Kotak Pertanyaan -->
+        <div class="question-box">
+            <div class="q-meta">
+                <span id="hud-q-num" style="font-weight: 700; color: #475569; font-size: 0.85rem;">Soal 1 dari 3</span>
+                <span id="hud-hots" class="hots-badge badge-LOTS">LOTS</span>
+            </div>
+            <div id="question-text" class="question-text">Loading question...</div>
+            <div id="question-hint" class="question-hint">Pecahkan balon dengan jawaban yang tepat!</div>
+            <button class="btn-speak" title="Dengarkan Soal" onclick="speakQuestion()">🔈</button>
+        </div>
+
+        <!-- Area Terbangnya Balon -->
+        <main id="playfield"></main>
+
+        <!-- Preview Kamera Kecil di Pojok (Aktif hanya jika mode kamera dipilih) -->
+        <div id="camera-pip" class="camera-pip hidden">
+            <video id="webcam-video" playsinline></video>
+            <canvas id="webcam-canvas"></canvas>
+            <div id="camera-status" class="camera-status">Menyiapkan kamera...</div>
+        </div>
+    </section>
+
+    <!-- ================= 3. LAYAR AKHIR (APRESIASI) ================= -->
+    <section id="end-screen" class="screen hidden">
+        <div class="end-card">
+            <div class="trophy-icon">🏆</div>
+            <h2 style="font-size: 2rem; color: #ef4444; text-shadow: 1px 2px 0 #fde047;">LUAR BIASA!</h2>
+            <div id="end-stars" class="stars-row">⭐⭐⭐</div>
+            
+            <div class="summary-box">
+                <div id="end-name" class="summary-name">Hebat, Siswa!</div>
+                <div style="font-size: 0.95rem; color: #64748b; font-weight: 700;">Total Skor Kamu:</div>
+                <div id="end-score" class="summary-score">1500</div>
+                <div id="end-time" style="font-size: 0.85rem; color: #475569; font-weight: 700; margin-top: 4px;">Waktu Bermain: 01:25</div>
+                <p id="end-message" class="appreciation-msg">
+                    Kamu telah menyelesaikan semua 5 Level pelajaran Bahasa Inggris tentang Food dengan sangat pintar!
+                </p>
+            </div>
+
+            <button class="btn-start" onclick="resetGame()">🔄 MAIN LAGI</button>
+        </div>
+    </section>
+
+    <script>
+        /* ============================================================================
+           1. BANK SOAL BAHASA INGGRIS KELAS 2 SD — MATERI: FOOD (5 LEVEL x 3 SOAL)
+           ============================================================================ */
+        const GAME_LEVELS = [
+            // LEVEL 1: Buah-buahan & Makanan Dasar
+            {
+                level: 1,
+                title: "Basic Fruits & Food",
+                questions: [
+                    {
+                        type: "LOTS",
+                        question: "What is 'Apel' in English?",
+                        hint: "Artinya 'Apel' dalam bahasa Inggris",
+                        options: [
+                            { text: "Apple", emoji: "🍎", correct: true },
+                            { text: "Banana", emoji: "🍌", correct: false },
+                            { text: "Orange", emoji: "🍊", correct: false }
+                        ]
+                    },
+                    {
+                        type: "MOTS",
+                        question: "Which one is yellow and long?",
+                        hint: "Manakah yang berwarna kuning dan panjang?",
+                        options: [
+                            { text: "Grape", emoji: "🍇", correct: false },
+                            { text: "Banana", emoji: "🍌", correct: true },
+                            { text: "Watermelon", emoji: "🍉", correct: false }
+                        ]
+                    },
+                    {
+                        type: "HOTS",
+                        question: "Monkeys love me. You peel my yellow skin before eating. What am I?",
+                        hint: "Monyet menyukaiku. Kupas kulit kuningku sebelum dimakan. Apakah aku?",
+                        options: [
+                            { text: "Apple", emoji: "🍎", correct: false },
+                            { text: "Carrot", emoji: "🥕", correct: false },
+                            { text: "Banana", emoji: "🍌", correct: true },
+                            { text: "Bread", emoji: "🍞", correct: false }
+                        ]
+                    }
+                ]
+            },
+            // LEVEL 2: Minuman & Rasa (Drinks & Taste)
+            {
+                level: 2,
+                title: "Drinks & Taste",
+                questions: [
+                    {
+                        type: "LOTS",
+                        question: "What is 'Susu' in English?",
+                        hint: "Minuman putih sehat dari sapi",
+                        options: [
+                            { text: "Water", emoji: "💧", correct: false },
+                            { text: "Milk", emoji: "🥛", correct: true },
+                            { text: "Juice", emoji: "🧃", correct: false }
+                        ]
+                    },
+                    {
+                        type: "MOTS",
+                        question: "Which food tastes SWEET?",
+                        hint: "Makanan mana yang rasanya MANIS?",
+                        options: [
+                            { text: "Ice Cream", emoji: "🍦", correct: true },
+                            { text: "Lemon", emoji: "🍋", correct: false },
+                            { text: "Chili", emoji: "🌶️", correct: false }
+                        ]
+                    },
+                    {
+                        type: "HOTS",
+                        question: "Budi is very thirsty after playing football. What does he need?",
+                        hint: "Budi sangat haus setelah bermain bola. Apa yang ia butuhkan?",
+                        options: [
+                            { text: "Bread", emoji: "🍞", correct: false },
+                            { text: "Rice", emoji: "🍚", correct: false },
+                            { text: "Water", emoji: "💧", correct: true },
+                            { text: "Chicken", emoji: "🍗", correct: false }
+                        ]
+                    }
+                ]
+            },
+            // LEVEL 3: Sarapan & Makanan Pokok (Breakfast & Meals)
+            {
+                level: 3,
+                title: "Breakfast & Meals",
+                questions: [
+                    {
+                        type: "LOTS",
+                        question: "What is 'Roti' in English?",
+                        hint: "Biasa dimakan dengan selai saat sarapan",
+                        options: [
+                            { text: "Rice", emoji: "🍚", correct: false },
+                            { text: "Bread", emoji: "🍞", correct: true },
+                            { text: "Egg", emoji: "🥚", correct: false }
+                        ]
+                    },
+                    {
+                        type: "MOTS",
+                        question: "Hens lay this food. It is white and yellow inside.",
+                        hint: "Ayam bertelur menghasilkan makanan ini.",
+                        options: [
+                            { text: "Cheese", emoji: "🧀", correct: false },
+                            { text: "Fish", emoji: "🐟", correct: false },
+                            { text: "Egg", emoji: "🥚", correct: true }
+                        ]
+                    },
+                    {
+                        type: "HOTS",
+                        question: "Siti wants a healthy breakfast before school. Which one should she choose?",
+                        hint: "Siti ingin sarapan sehat sebelum sekolah. Mana yang sebaiknya dipilih?",
+                        options: [
+                            { text: "Candy", emoji: "🍬", correct: false },
+                            { text: "Milk & Bread", emoji: "🥛", correct: true },
+                            { text: "Lollipop", emoji: "🍭", correct: false },
+                            { text: "Soda", emoji: "🥤", correct: false }
+                        ]
+                    }
+                ]
+            },
+            // LEVEL 4: Sayuran & Lauk Pauk (Vegetables & Side Dishes)
+            {
+                level: 4,
+                title: "Vegetables & Dishes",
+                questions: [
+                    {
+                        type: "LOTS",
+                        question: "What is 'Ikan' in English?",
+                        hint: "Hewan yang hidup di air dan bergizi",
+                        options: [
+                            { text: "Chicken", emoji: "🍗", correct: false },
+                            { text: "Meat", emoji: "🥩", correct: false },
+                            { text: "Fish", emoji: "🐟", correct: true }
+                        ]
+                    },
+                    {
+                        type: "MOTS",
+                        question: "Which one is an ORANGE vegetable?",
+                        hint: "Manakah sayuran yang berwarna ORANYE?",
+                        options: [
+                            { text: "Carrot", emoji: "🥕", correct: true },
+                            { text: "Corn", emoji: "🌽", correct: false },
+                            { text: "Broccoli", emoji: "🥦", correct: false }
+                        ]
+                    },
+                    {
+                        type: "HOTS",
+                        question: "I am orange, I grow under the ground, and rabbits love me. Who am I?",
+                        hint: "Aku berwarna oranye, tumbuh di dalam tanah, dan kelinci menyukaiku.",
+                        options: [
+                            { text: "Tomato", emoji: "🍅", correct: false },
+                            { text: "Banana", emoji: "🍌", correct: false },
+                            { text: "Carrot", emoji: "🥕", correct: true },
+                            { text: "Cheese", emoji: "🧀", correct: false }
+                        ]
+                    }
+                ]
+            },
+            // LEVEL 5: Tantangan Pintar (Smart Food Challenge)
+            {
+                level: 5,
+                title: "Master Chef Challenge",
+                questions: [
+                    {
+                        type: "LOTS",
+                        question: "What is 'Nasi' in English?",
+                        hint: "Makanan pokok orang Indonesia",
+                        options: [
+                            { text: "Noodle", emoji: "🍜", correct: false },
+                            { text: "Rice", emoji: "🍚", correct: true },
+                            { text: "Cake", emoji: "🍰", correct: false }
+                        ]
+                    },
+                    {
+                        type: "MOTS",
+                        question: "Which food comes from MILK?",
+                        hint: "Makanan mana yang terbuat dari SUSU?",
+                        options: [
+                            { text: "Apple", emoji: "🍎", correct: false },
+                            { text: "Fish", emoji: "🐟", correct: false },
+                            { text: "Cheese", emoji: "🧀", correct: true },
+                            { text: "Rice", emoji: "🍚", correct: false }
+                        ]
+                    },
+                    {
+                        type: "HOTS",
+                        question: "Today is Edo's birthday! We put candles on this sweet food. What is it?",
+                        hint: "Hari ini ulang tahun Edo! Kita menaruh lilin di atas makanan manis ini.",
+                        options: [
+                            { text: "Soup", emoji: "🍲", correct: false },
+                            { text: "Birthday Cake", emoji: "🎂", correct: true },
+                            { text: "Salad", emoji: "🥗", correct: false },
+                            { text: "Watermelon", emoji: "🍉", correct: false }
+                        ]
+                    }
+                ]
+            }
+        ];
+
+        /* ============================================================================
+           2. STATE PERMAINAN & KONFIGURASI BALON
+           ============================================================================ */
+        const BALLOON_COLORS = [
+            { bg: "radial-gradient(circle at 35% 30%, #ff7eb3, #ef4444 65%, #991b1b 100%)", knot: "#b91c1c" },
+            { bg: "radial-gradient(circle at 35% 30%, #7dd3fc, #0284c7 65%, #075985 100%)", knot: "#0369a1" },
+            { bg: "radial-gradient(circle at 35% 30%, #fde047, #f59e0b 65%, #b45309 100%)", knot: "#b45309" },
+            { bg: "radial-gradient(circle at 35% 30%, #86efac, #16a34a 65%, #14532d 100%)", knot: "#15803d" },
+            { bg: "radial-gradient(circle at 35% 30%, #d8b4fe, #9333ea 65%, #581c87 100%)", knot: "#6b21a8" }
+        ];
+
+        let state = {
+            studentName: "Siswa Pintar",
+            controlMode: "camera", // 'camera' | 'pointer'
+            levelIdx: 0,           // 0..4
+            questionIdx: 0,        // 0..2
+            score: 0,
+            secondsElapsed: 0,
+            isMuted: false,
+            isPlaying: false,
+            isTransitioning: false,
+            balloons: [],
+            timerInterval: null,
+            animFrameId: null
+        };
+
+        /* ============================================================================
+           3. SISTEM AUDIO SINTETIS (WEB AUDIO API - TANPA FILE EKSTERNAL)
+           ============================================================================ */
+        const AudioSys = {
+            ctx: null,
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            },
+            playPop() {
+                if (state.isMuted) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(300, now);
+                osc.frequency.exponentialRampToValueAtTime(900, now + 0.08);
+                gain.gain.setValueAtTime(0.5, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.09);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.1);
+            },
+            playCorrect() {
+                if (state.isMuted) return;
+                this.playPop();
+                const now = this.ctx.currentTime;
+                const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+                notes.forEach((freq, i) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, now + i * 0.07);
+                    gain.gain.setValueAtTime(0.3, now + i * 0.07);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.07 + 0.25);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now + i * 0.07);
+                    osc.stop(now + i * 0.07 + 0.26);
+                });
+            },
+            playWrong() {
+                if (state.isMuted) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(220, now);
+                osc.frequency.linearRampToValueAtTime(140, now + 0.25);
+                gain.gain.setValueAtTime(0.25, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.26);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.27);
+            },
+            playFanfare() {
+                if (state.isMuted) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                const melody = [523.25, 659.25, 783.99, 1046.50, 783.99, 1046.50];
+                const times = [0, 0.12, 0.24, 0.36, 0.52, 0.66];
+                melody.forEach((freq, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, now + times[idx]);
+                    gain.gain.setValueAtTime(0.35, now + times[idx]);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + times[idx] + 0.35);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now + times[idx]);
+                    osc.stop(now + times[idx] + 0.36);
+                });
+            }
+        };
+
+        /* ============================================================================
+           4. SISTEM PARTIKEL & LEDAKAN BALON (CANVAS FX)
+           ============================================================================ */
+        const fxCanvas = document.getElementById('fx-canvas');
+        const fxCtx = fxCanvas.getContext('2d');
+        let particles = [];
+
+        function resizeFxCanvas() {
+            fxCanvas.width = window.innerWidth;
+            fxCanvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeFxCanvas);
+        resizeFxCanvas();
+
+        function spawnPopParticles(x, y, colorHex = "#fbbf24") {
+            const palette = [colorHex, "#fde047", "#38bdf8", "#f472b6", "#4ade80", "#ffffff"];
+            for (let i = 0; i < 36; i++) {
+                const angle = (Math.PI * 2 * i) / 36 + (Math.random() - 0.5) * 0.3;
+                const speed = 4 + Math.random() * 9;
+                particles.push({
+                    x, y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed - 2,
+                    size: 6 + Math.random() * 8,
+                    color: palette[Math.floor(Math.random() * palette.length)],
+                    alpha: 1,
+                    gravity: 0.28,
+                    shape: Math.random() > 0.5 ? 'circle' : 'rect',
+                    rotation: Math.random() * 360
+                });
+            }
+        }
+
+        function spawnConfettiCelebration() {
+            const colors = ["#ef4444", "#f59e0b", "#10b981", "#3b82f6", "#ec4899", "#8b5cf6"];
+            for (let i = 0; i < 120; i++) {
+                particles.push({
+                    x: Math.random() * fxCanvas.width,
+                    y: -20 - Math.random() * 300,
+                    vx: (Math.random() - 0.5) * 4,
+                    vy: 3 + Math.random() * 5,
+                    size: 8 + Math.random() * 8,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    alpha: 1,
+                    gravity: 0.05,
+                    shape: 'rect',
+                    rotation: Math.random() * 360
+                });
+            }
+        }
+
+        function updateParticles() {
+            fxCtx.clearRect(0, 0, fxCanvas.width, fxCanvas.height);
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vy += p.gravity;
+                p.alpha -= 0.018;
+                p.rotation += 6;
+
+                if (p.alpha <= 0) {
+                    particles.splice(i, 1);
+                    continue;
+                }
+
+                fxCtx.save();
+                fxCtx.globalAlpha = Math.max(0, p.alpha);
+                fxCtx.translate(p.x, p.y);
+                fxCtx.rotate((p.rotation * Math.PI) / 180);
+                fxCtx.fillStyle = p.color;
+                if (p.shape === 'circle') {
+                    fxCtx.beginPath();
+                    fxCtx.arc(0, 0, p.size / 2, 0, Math.PI * 2);
+                    fxCtx.fill();
+                } else {
+                    fxCtx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6);
+                }
+                fxCtx.restore();
+            }
+        }
+
+        /* ============================================================================
+           5. KONTROL UI, NAVIGASI LAYAR & LOGIKA PERTANYAAN
+           ============================================================================ */
+        function selectControlMode(mode) {
+            state.controlMode = mode;
+            document.getElementById('mode-camera').classList.toggle('active', mode === 'camera');
+            document.getElementById('mode-pointer').classList.toggle('active', mode === 'pointer');
+            document.getElementById('gesture-info').style.display = mode === 'camera' ? 'block' : 'none';
+        }
+
+        function toggleMute() {
+            state.isMuted = !state.isMuted;
+            document.getElementById('btn-mute').textContent = state.isMuted ? '🔇' : '🔊';
+        }
+
+        function speakQuestion() {
+            if (state.isMuted || !('speechSynthesis' in window)) return;
+            window.speechSynthesis.cancel();
+            const qText = document.getElementById('question-text').textContent;
+            const utter = new SpeechSynthesisUtterance(qText);
+            utter.lang = 'en-US';
+            utter.rate = 0.9;
+            utter.pitch = 1.1;
+            window.speechSynthesis.speak(utter);
+        }
+
+        function showToast(msg, isSuccess = true) {
+            const toast = document.getElementById('feedback-toast');
+            toast.textContent = msg;
+            toast.style.borderColor = isSuccess ? '#10b981' : '#ef4444';
+            toast.style.color = isSuccess ? '#047857' : '#b91c1c';
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 950);
+        }
+
+        async function startGame() {
+            AudioSys.init();
+            const inputVal = document.getElementById('student-name').value.trim();
+            state.studentName = inputVal || "Anak Pintar";
+            state.levelIdx = 0;
+            state.questionIdx = 0;
+            state.score = 0;
+            state.secondsElapsed = 0;
+            state.isPlaying = true;
+            state.isTransitioning = false;
+
+            document.getElementById('hud-name').textContent = state.studentName;
+            updateHUD();
+
+            document.getElementById('start-screen').classList.add('hidden');
+            document.getElementById('end-screen').classList.add('hidden');
+            document.getElementById('game-screen').classList.remove('hidden');
+
+            // Jalankan kamera hanya setelah tombol diklik & mode kamera dipilih
+            if (state.controlMode === 'camera') {
+                await initHandTracking();
+            } else {
+                document.getElementById('camera-pip').classList.add('hidden');
+                document.getElementById('hand-cursor').classList.add('hidden');
+            }
+
+            startTimer();
+            loadQuestion();
+            if (!state.animFrameId) {
+                gameLoop();
+            }
+        }
+
+        function startTimer() {
+            clearInterval(state.timerInterval);
+            state.timerInterval = setInterval(() => {
+                if (!state.isPlaying) return;
+                state.secondsElapsed++;
+                const mins = String(Math.floor(state.secondsElapsed / 60)).padStart(2, '0');
+                const secs = String(state.secondsElapsed % 60).padStart(2, '0');
+                document.getElementById('hud-timer').textContent = `${mins}:${secs}`;
+            }, 1000);
+        }
+
+        function updateHUD() {
+            document.getElementById('hud-level').textContent = state.levelIdx + 1;
+            document.getElementById('hud-score').textContent = state.score;
+            const totalQuestions = GAME_LEVELS.length * 3;
+            const completed = state.levelIdx * 3 + state.questionIdx;
+            const pct = (completed / totalQuestions) * 100;
+            document.getElementById('progress-bar').style.width = `${pct}%`;
+        }
+
+        function loadQuestion() {
+            state.isTransitioning = false;
+            const currentLvl = GAME_LEVELS[state.levelIdx];
+            const qData = currentLvl.questions[state.questionIdx];
+
+            document.getElementById('hud-q-num').textContent = `Soal ${state.questionIdx + 1} dari 3`;
+            const hotsEl = document.getElementById('hud-hots');
+            hotsEl.textContent = qData.type;
+            hotsEl.className = `hots-badge badge-${qData.type}`;
+
+            document.getElementById('question-text').textContent = qData.question;
+            document.getElementById('question-hint').textContent = `💡 ${qData.hint}`;
+
+            updateHUD();
+            spawnBalloons(qData.options);
+            setTimeout(speakQuestion, 300);
+        }
+
+        /* ============================================================================
+           6. SPAWN & ANIMASI BALON 3D MENGAMBANG
+           ============================================================================ */
+        function spawnBalloons(options) {
+            const playfield = document.getElementById('playfield');
+            playfield.innerHTML = '';
+            state.balloons = [];
+
+            // Acak urutan balon
+            const shuffled = [...options].sort(() => Math.random() - 0.5);
+            const count = shuffled.length;
+            const colors = [...BALLOON_COLORS].sort(() => Math.random() - 0.5);
+
+            shuffled.forEach((opt, idx) => {
+                const colorTheme = colors[idx % colors.length];
+                const el = document.createElement('div');
+                el.className = 'balloon-wrapper';
+                el.innerHTML = `
+                    <div class="balloon-body" style="background: ${colorTheme.bg};">
+                        <div class="balloon-emoji">${opt.emoji}</div>
+                        <div class="balloon-label">${opt.text}</div>
+                    </div>
+                    <div class="balloon-knot" style="background: ${colorTheme.knot};"></div>
+                    <div class="balloon-string"></div>
+                `;
+
+                // Posisi horizontal merata dengan sedikit variasi
+                const segment = 100 / (count + 1);
+                const baseXPercent = segment * (idx + 1);
+                const baseYPercent = 48 + (idx % 2 === 0 ? -6 : 8);
+
+                const balloonObj = {
+                    el,
+                    option: opt,
+                    baseXPercent,
+                    baseYPercent,
+                    phase: idx * 1.7 + Math.random(),
+                    speedY: 0.025 + Math.random() * 0.012,
+                    speedX: 0.015 + Math.random() * 0.01,
+                    ampY: 16 + Math.random() * 8,
+                    ampX: 8 + Math.random() * 6,
+                    popped: false,
+                    cooldown: false
+                };
+
+                // Event Mouse & Touchscreen
+                el.addEventListener('pointerdown', (e) => {
+                    e.preventDefault();
+                    handleBalloonPop(balloonObj);
+                });
+
+                playfield.appendChild(el);
+                state.balloons.push(balloonObj);
+            });
+        }
+
+        function handleBalloonPop(bObj) {
+            if (!state.isPlaying || state.isTransitioning || bObj.popped || bObj.cooldown) return;
+
+            const rect = bObj.el.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+
+            if (bObj.option.correct) {
+                // JAWABAN BENAR!
+                bObj.popped = true;
+                state.isTransitioning = true;
+                AudioSys.playCorrect();
+                spawnPopParticles(centerX, centerY, "#4ade80");
+                bObj.el.style.display = 'none';
+
+                // Tambah Skor (LOTS: 100, MOTS: 150, HOTS: 200)
+                const qType = GAME_LEVELS[state.levelIdx].questions[state.questionIdx].type;
+                const points = qType === 'HOTS' ? 200 : (qType === 'MOTS' ? 150 : 100);
+                state.score += points;
+                updateHUD();
+
+                const praises = ["Hebat! 🎉", "Pintar Sekali! ⭐", "Benar! 👏", "Luar Biasa! 🌟"];
+                showToast(`${praises[Math.floor(Math.random() * praises.length)]} +${points}`, true);
+
+                // Lanjut ke soal atau level berikutnya
+                setTimeout(() => {
+                    state.questionIdx++;
+                    if (state.questionIdx >= 3) {
+                        state.questionIdx = 0;
+                        state.levelIdx++;
+                    }
+
+                    if (state.levelIdx >= GAME_LEVELS.length) {
+                        finishGame();
+                    } else {
+                        loadQuestion();
+                    }
+                }, 1050);
+
+            } else {
+                // JAWABAN SALAH
+                bObj.cooldown = true;
+                AudioSys.playWrong();
+                bObj.el.classList.remove('balloon-wrong');
+                void bObj.el.offsetWidth; // trigger reflow
+                bObj.el.classList.add('balloon-wrong');
+
+                state.score = Math.max(0, state.score - 20);
+                updateHUD();
+                showToast("Coba lagi ya! 💪", false);
+
+                setTimeout(() => {
+                    bObj.cooldown = false;
+                }, 600);
+            }
+        }
+
+        function finishGame() {
+            state.isPlaying = false;
+            clearInterval(state.timerInterval);
+            document.getElementById('progress-bar').style.width = '100%';
+            AudioSys.playFanfare();
+            spawnConfettiCelebration();
+
+            document.getElementById('game-screen').classList.add('hidden');
+            document.getElementById('hand-cursor').classList.add('hidden');
+            document.getElementById('end-screen').classList.remove('hidden');
+
+            document.getElementById('end-name').textContent = `Selamat, ${state.studentName}! 🎓`;
+            document.getElementById('end-score').textContent = `${state.score} Poin`;
+            document.getElementById('end-time').textContent = `Waktu Selesai: ${document.getElementById('hud-timer').textContent}`;
+
+            // Rating Bintang berdasarkan skor (Maksimal skor ~2250)
+            let stars = "⭐⭐⭐";
+            let msg = "Luar biasa! Kamu sudah menguasai kosakata Bahasa Inggris tentang Makanan & Minuman dengan sangat baik!";
+            if (state.score < 1200) {
+                stars = "⭐⭐";
+                msg = "Bagus sekali! Terus berlatih kosakata Bahasa Inggris agar semakin mahir ya!";
+            }
+            document.getElementById('end-stars').textContent = stars;
+            document.getElementById('end-message').textContent = msg;
+        }
+
+        function resetGame() {
+            document.getElementById('end-screen').classList.add('hidden');
+            document.getElementById('start-screen').classList.remove('hidden');
+        }
+
+        /* ============================================================================
+           7. GAME LOOP UTAMA (GERAKAN BALON & PARTIKEL)
+           ============================================================================ */
+        let tick = 0;
+        function gameLoop() {
+            tick += 1;
+            updateParticles();
+
+            if (state.isPlaying) {
+                const playfield = document.getElementById('playfield');
+                const pfWidth = playfield.clientWidth;
+                const pfHeight = playfield.clientHeight;
+
+                state.balloons.forEach((b) => {
+                    if (b.popped) return;
+                    const offsetY = Math.sin(tick * b.speedY + b.phase) * b.ampY;
+                    const offsetX = Math.cos(tick * b.speedX + b.phase) * b.ampX;
+                    const x = (b.baseXPercent / 100) * pfWidth + offsetX;
+                    const y = (b.baseYPercent / 100) * pfHeight + offsetY;
+
+                    b.el.style.left = `${x}px`;
+                    b.el.style.top = `${y}px`;
+                });
+            }
+
+            state.animFrameId = requestAnimationFrame(gameLoop);
+        }
+
+        /* ============================================================================
+           8. DETEKSI GERAKAN TANGAN (MEDIAPIPE HANDS & PINCH GESTURE)
+           ============================================================================ */
+        let cameraInstance = null;
+        let handsInstance = null;
+        let isPinchingNow = false;
+        let smoothCursorX = window.innerWidth / 2;
+        let smoothCursorY = window.innerHeight / 2;
+
+        async function initHandTracking() {
+            const pip = document.getElementById('camera-pip');
+            const statusText = document.getElementById('camera-status');
+            const cursor = document.getElementById('hand-cursor');
+            const videoEl = document.getElementById('webcam-video');
+            const canvasEl = document.getElementById('webcam-canvas');
+            const canvasCtx = canvasEl.getContext('2d');
+
+            pip.classList.remove('hidden');
+            statusText.textContent = "Meminta izin kamera...";
+
+            try {
+                if (!handsInstance) {
+                    handsInstance = new Hands({
+                        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+                    });
+
+                    handsInstance.setOptions({
+                        maxNumHands: 1,
+                        modelComplexity: 1,
+                        minDetectionConfidence: 0.65,
+                        minTrackingConfidence: 0.6
+                    });
+
+                    handsInstance.onResults((results) => {
+                        canvasEl.width = videoEl.videoWidth || 320;
+                        canvasEl.height = videoEl.videoHeight || 240;
+                        canvasCtx.save();
+                        canvasCtx.clearRect(0, 0, canvasEl.width, canvasEl.height);
+
+                        if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                            statusText.textContent = "🖐️ Tangan Terdeteksi!";
+                            cursor.classList.remove('hidden');
+
+                            const landmarks = results.multiHandLandmarks[0];
+
+                            // Gambar kerangka tangan di kotak preview kecil
+                            if (window.drawConnectors && window.HAND_CONNECTIONS) {
+                                drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, { color: '#38bdf8', lineWidth: 3 });
+                                drawLandmarks(canvasCtx, landmarks, { color: '#facc15', lineWidth: 1, radius: 3 });
+                            }
+
+                            // Landmark 8 = Ujung Telunjuk, Landmark 4 = Ujung Jempol
+                            const indexTip = landmarks[8];
+                            const thumbTip = landmarks[4];
+
+                            // Koordinat cermin (mirror X) ke layar penuh
+                            const targetX = (1 - indexTip.x) * window.innerWidth;
+                            const targetY = indexTip.y * window.innerHeight;
+
+                            // Smoothing gerakan kursor agar tidak bergetar
+                            smoothCursorX += (targetX - smoothCursorX) * 0.45;
+                            smoothCursorY += (targetY - smoothCursorY) * 0.45;
+
+                            cursor.style.left = `${smoothCursorX}px`;
+                            cursor.style.top = `${smoothCursorY}px`;
+
+                            // Hitung jarak Euclidean antara jempol & telunjuk untuk deteksi PINCH
+                            const dx = indexTip.x - thumbTip.x;
+                            const dy = indexTip.y - thumbTip.y;
+                            const pinchDist = Math.hypot(dx, dy);
+
+                            // Highlight balon di bawah kursor
+                            checkCursorHover(smoothCursorX, smoothCursorY);
+
+                            // Ambang batas gesture pinch (< 0.055)
+                            if (pinchDist < 0.055) {
+                                cursor.classList.add('pinching');
+                                if (!isPinchingNow) {
+                                    isPinchingNow = true;
+                                    triggerPinchPop(smoothCursorX, smoothCursorY);
+                                }
+                            } else {
+                                cursor.classList.remove('pinching');
+                                isPinchingNow = false;
+                            }
+                        } else {
+                            statusText.textContent = "Arahkan tangan ke kamera";
+                            cursor.classList.add('hidden');
+                        }
+                        canvasCtx.restore();
+                    });
+                }
+
+                if (!cameraInstance) {
+                    cameraInstance = new Camera(videoEl, {
+                        onFrame: async () => {
+                            if (state.isPlaying && state.controlMode === 'camera') {
+                                await handsInstance.send({ image: videoEl });
+                            }
+                        },
+                        width: 320,
+                        height: 240
+                    });
+                }
+
+                await cameraInstance.start();
+                statusText.textContent = "Kamera Aktif!";
+            } catch (err) {
+                console.warn("Kamera tidak tersedia atau ditolak:", err);
+                statusText.textContent = "Kamera off (Gunakan Mouse/Sentuh)";
+                cursor.classList.add('hidden');
+                showToast("Kamera tidak aktif, gunakan klik/sentuh ya!", false);
+            }
+        }
+
+        function checkCursorHover(cx, cy) {
+            state.balloons.forEach((b) => {
+                if (b.popped) return;
+                const rect = b.el.getBoundingClientRect();
+                const isInside = cx >= rect.left && cx <= rect.right && cy >= rect.top && cy <= rect.bottom;
+                b.el.classList.toggle('hovered', isInside);
+            });
+        }
+
+        function triggerPinchPop(cx, cy) {
+            if (!state.isPlaying) return;
+            for (const b of state.balloons) {
+                if (b.popped) continue;
+                const rect = b.el.getBoundingClientRect();
+                // Beri toleransi area hit sedikit lebih luas (15px) agar mudah untuk anak SD
+                const pad = 15;
+                if (
+                    cx >= rect.left - pad &&
+                    cx <= rect.right + pad &&
+                    cy >= rect.top - pad &&
+                    cy <= rect.bottom + pad
+                ) {
+                    handleBalloonPop(b);
+                    break;
+                }
+            }
+        }
+    </script>
+</body>
+</html>
